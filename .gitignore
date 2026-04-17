@@ -1,0 +1,41 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Generated outputs
+results/
+checkpoints/
+logs/
+wandb/
+*.npz
+*.npy
+*.pkl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.venv/
+venv/
+
+# LaTeX build artefacts (in case anyone drafts notes locally)
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg

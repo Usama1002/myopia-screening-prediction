@@ -1,0 +1,155 @@
+# Paper 1 Experiment Plan
+# Title: Myopia Risk Prediction Using Biometric Screening Features
+# Hypothesis: Pupil size, IPD, and gaze deviation add independent predictive
+# value for myopia onset/progression beyond standard refraction.
+
+dataset:
+  source: "../../data/*.xls"
+  total_records: 5546
+  unique_children: 2884
+  longitudinal_children: 1630
+  years: [2018, 2019, 2020, 2021]
+
+cohorts:
+  # Onset cohort: non-myopic children with at least one follow-up screening
+  onset:
+    inclusion: "SE_OD > -0.50 D AND SE_OS > -0.50 D AT BASELINE"
+    inclusion_followup: "Has next-year screening"
+    estimated_size: 800
+    label: "becomes_myopic_next_year (binary)"
+
+  # Progression cohort: myopic children with at least one follow-up screening
+  progression:
+    inclusion: "SE_OD <= -0.50 D OR SE_OS <= -0.50 D AT BASELINE"
+    inclusion_followup: "Has next-year screening"
+    estimated_size: 700
+    label: "delta_SE / delta_t (D/year, continuous)"
+
+# ============================================================================
+# Five-tier model comparison (incremental feature addition)
+# ============================================================================
+model_tiers:
+  T1_demographic:
+    name: "T1: Demographic Baseline"
+    features: [age, gender]
+    model: "LogisticRegression / LinearRegression"
+    purpose: "Floor of clinical knowledge"
+
+  T2_clinical:
+    name: "T2: Clinical Refraction (Standard of Care)"
+    features: [age, gender, SE_OD, SE_OS]
+    model: "LogisticRegression / LinearRegression"
+    purpose: "Current clinical practice"
+
+  T3_full_refraction:
+    name: "T3: Full Refraction"
+    features: [age, gender, SE_OD, SE_OS, DS_OD, DS_OS, DC_OD, DC_OS]
+    model: "LogisticRegression / LinearRegression"
+    purpose: "All standard refractive measurements"
+
+  T4_biometric:
+    name: "T4: + Biometric Features (PROPOSED)"
+    features: [age, gender, SE_OD, SE_OS, DS_OD, DS_OS, DC_OD, DC_OS,
+               pupil_OD, pupil_OS, IPD, gaze_mag_OD, gaze_mag_OS,
+               pupil_asym]
+    model: "LogisticRegression / LinearRegression (linear)"
+    purpose: "Test if biometric features add linear predictive value"
+
+  T5_nonlinear:
+    name: "T5: + Non-Linear (XGBoost full feature set)"
+    features: "same as T4"
+    model: "XGBoost / RandomForest / LightGBM"
+    purpose: "Capture non-linear interactions"
+
+  T6_deep:
+    name: "T6: Deep Learning (MLP / TabTransformer)"
+    features: "same as T4"
+    model: "MLP with attention over features"
+    purpose: "Upper bound of predictive capacity"
+
+# ============================================================================
+# Statistical evaluation
+# ============================================================================
+evaluation:
+  cv_strategy: "5-fold stratified GroupKFold (group=Id, prevents leakage)"
+  bootstrap_iterations: 1000
+  significance_test: "DeLong test for paired AUC comparisons"
+  multiple_comparison_correction: "Holm-Bonferroni"
+
+  primary_comparison:
+    null_hypothesis: "AUC(T4) <= AUC(T3)"
+    alpha: 0.05
+    expected_delta_auc: ">= 0.02 (minimum clinically relevant)"
+
+  calibration:
+    methods: [reliability_diagram, hosmer_lemeshow, brier_score, calibration_slope]
+
+  clinical_utility:
+    methods: [decision_curve_analysis, net_reclassification_improvement, sensitivity_at_90_specificity]
+
+# ============================================================================
+# Subgroup and interpretability analyses
+# ============================================================================
+subgroup_analyses:
+  - name: "by_age"
+    strata: ["6-8 years", "9-11 years", "12-13 years"]
+  - name: "by_gender"
+    strata: ["male", "female"]
+  - name: "by_baseline_se"
+    strata: ["far from threshold (SE > 0.5)", "near threshold (-0.5 < SE <= 0.5)"]
+
+interpretability:
+  global: "SHAP summary plot, feature importance ranking"
+  local: "SHAP force plots for high-risk individuals"
+  age_stratified: "SHAP values per age group"
+  feature_interactions: "SHAP interaction values for top 5 features"
+
+# ============================================================================
+# Robustness checks
+# ============================================================================
+robustness:
+  temporal_validation:
+    name: "Train on 2018-2020, test on 2021 (external temporal split)"
+  multi_seed:
+    seeds: [42, 123, 456, 789, 2024]
+    n_seeds: 5
+  sensitivity:
+    - "Drop COVID year (2020) and re-evaluate"
+    - "Vary myopia threshold (-0.50 vs -0.75 D)"
+    - "Different feature normalization (standard vs robust)"
+
+# ============================================================================
+# Novel additions for wow factor
+# ============================================================================
+novel_contributions:
+  - id: "biometric_risk_score"
+    description: "Combine SHAP + clinical thresholds into a 0-100 risk score with calibrated cutoffs (Low <20, Med 20-60, High >60)"
+
+  - id: "mechanistic_validation"
+    description: "Test whether pupil-myopia association strengthens at ages where peripheral defocus is most active (8-10 years), supporting the mechanistic hypothesis"
+
+  - id: "dual_task_joint_model"
+    description: "Joint multi-task model predicting onset AND progression simultaneously, sharing representations"
+
+  - id: "nri_clinical_translation"
+    description: "Net Reclassification Improvement showing how many children move from 'low risk' to 'high risk' when biometric features are added"
+
+# ============================================================================
+# Outputs
+# ============================================================================
+outputs:
+  results_tables:
+    - "Table 1: Cohort characteristics"
+    - "Table 2: Five-tier AUC/MAE comparison with bootstrap CI"
+    - "Table 3: Subgroup performance"
+    - "Table 4: Calibration metrics"
+    - "Table 5: Decision curve net benefit"
+
+  figures:
+    - "Fig 1: Cohort flow diagram"
+    - "Fig 2: ROC curves all tiers"
+    - "Fig 3: Calibration plots"
+    - "Fig 4: SHAP summary"
+    - "Fig 5: Age-stratified feature importance"
+    - "Fig 6: Decision curve analysis"
+    - "Fig 7: Risk score distribution by outcome"
